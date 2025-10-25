@@ -1,18 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Clock, Calendar, Trash2, Moon } from 'lucide-react-native';
+import { Clock, Calendar, Trash2, Moon, Volume2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface SleepRecord {
   id: string;
   sleep_time: string;
   wake_time: string;
   selected_alarm: string | null;
+  alarm_sound: string | null;
+  is_custom: boolean;
   created_at: string;
 }
 
 export default function HistoryScreen() {
+  const { colors } = useTheme();
+  const { t } = useLanguage();
   const [records, setRecords] = useState<SleepRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -71,18 +77,20 @@ export default function HistoryScreen() {
     const diffInHours = diffInMs / (1000 * 60 * 60);
 
     if (diffInHours < 24) {
-      return 'Today';
+      return t('today');
     } else if (diffInHours < 48) {
-      return 'Yesterday';
+      return t('yesterday');
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
   };
 
+  const styles = createStyles(colors);
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -90,11 +98,9 @@ export default function HistoryScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.centerContainer}>
-        <Moon size={48} color="#d1d5db" />
-        <Text style={styles.emptyTitle}>History Not Available</Text>
-        <Text style={styles.emptyText}>
-          Sleep history is only available when using authentication. You can still use the calculator without an account.
-        </Text>
+        <Moon size={48} color={colors.inactive} />
+        <Text style={styles.emptyTitle}>{t('historyNotAvailable')}</Text>
+        <Text style={styles.emptyText}>{t('historyAuthOnly')}</Text>
       </View>
     );
   }
@@ -102,11 +108,9 @@ export default function HistoryScreen() {
   if (records.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <Moon size={48} color="#d1d5db" />
-        <Text style={styles.emptyTitle}>No Sleep Records Yet</Text>
-        <Text style={styles.emptyText}>
-          Your sleep history will appear here once you start using the calculator.
-        </Text>
+        <Moon size={48} color={colors.inactive} />
+        <Text style={styles.emptyTitle}>{t('noRecordsYet')}</Text>
+        <Text style={styles.emptyText}>{t('historyWillAppear')}</Text>
       </View>
     );
   }
@@ -114,8 +118,10 @@ export default function HistoryScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Sleep History</Text>
-        <Text style={styles.subtitle}>{records.length} records</Text>
+        <Text style={styles.title}>{t('sleepHistory')}</Text>
+        <Text style={styles.subtitle}>
+          {records.length} {t('records')}
+        </Text>
       </View>
 
       <View style={styles.recordsList}>
@@ -123,11 +129,16 @@ export default function HistoryScreen() {
           <View key={record.id} style={styles.recordCard}>
             <View style={styles.recordHeader}>
               <View style={styles.dateContainer}>
-                <Calendar size={16} color="#6b7280" />
+                <Calendar size={16} color={colors.textSecondary} />
                 <Text style={styles.dateText}>{formatDate(record.created_at)}</Text>
+                {record.is_custom && (
+                  <View style={styles.customBadge}>
+                    <Text style={styles.customBadgeText}>Custom</Text>
+                  </View>
+                )}
               </View>
               <TouchableOpacity onPress={() => handleDelete(record.id)} style={styles.deleteButton}>
-                <Trash2 size={18} color="#ef4444" />
+                <Trash2 size={18} color={colors.error} />
               </TouchableOpacity>
             </View>
 
@@ -135,28 +146,36 @@ export default function HistoryScreen() {
               <View style={styles.timeRow}>
                 <View style={styles.timeContainer}>
                   <View style={styles.timeIconWrapper}>
-                    <Moon size={16} color="#6366f1" />
+                    <Moon size={16} color={colors.primary} />
                   </View>
                   <View>
-                    <Text style={styles.timeLabel}>Bedtime</Text>
+                    <Text style={styles.timeLabel}>{t('bedtime')}</Text>
                     <Text style={styles.timeValue}>{record.sleep_time}</Text>
                   </View>
                 </View>
 
                 <View style={styles.timeContainer}>
                   <View style={styles.timeIconWrapper}>
-                    <Clock size={16} color="#10b981" />
+                    <Clock size={16} color={colors.success} />
                   </View>
                   <View>
-                    <Text style={styles.timeLabel}>Wake Time</Text>
+                    <Text style={styles.timeLabel}>{t('wakeUpTime')}</Text>
                     <Text style={styles.timeValue}>{record.wake_time}</Text>
                   </View>
                 </View>
               </View>
 
               {record.selected_alarm && (
-                <View style={styles.alarmBadge}>
-                  <Text style={styles.alarmBadgeText}>Alarm set for {record.selected_alarm}</Text>
+                <View style={styles.alarmInfo}>
+                  <Text style={styles.alarmText}>
+                    {t('alarmSetFor')} {record.selected_alarm}
+                  </Text>
+                  {record.alarm_sound && (
+                    <View style={styles.soundBadge}>
+                      <Volume2 size={12} color={colors.primary} />
+                      <Text style={styles.soundText}>{t(record.alarm_sound)}</Text>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
@@ -167,44 +186,44 @@ export default function HistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.background,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.background,
   },
   header: {
     paddingTop: 60,
     paddingHorizontal: 24,
     paddingBottom: 24,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.textSecondary,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.text,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -213,11 +232,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   recordCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   recordHeader: {
     flexDirection: 'row',
@@ -229,11 +248,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
   dateText: {
     fontSize: 13,
-    color: '#6b7280',
+    color: colors.textSecondary,
     fontWeight: '500',
+  },
+  customBadge: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  customBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primary,
   },
   deleteButton: {
     padding: 4,
@@ -255,30 +287,42 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   timeLabel: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   timeValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
   },
-  alarmBadge: {
-    backgroundColor: '#eef2ff',
+  alarmInfo: {
+    backgroundColor: colors.primaryLight,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  alarmBadgeText: {
+  alarmText: {
     fontSize: 12,
-    color: '#6366f1',
+    color: colors.primary,
     fontWeight: '600',
-    textAlign: 'center',
+  },
+  soundBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  soundText: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '500',
   },
 });

@@ -48,13 +48,13 @@ export function formatDuration(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
-export function calculateWakeTimes(sleepTime: string, wakeTime: string): SuggestedTime[] {
+export function calculateWakeTimes(sleepTime: string, wakeTime: string, limit: number = 5): SuggestedTime[] {
   const suggestions: SuggestedTime[] = [];
   const totalAvailableMinutes = calculateMinutesBetween(sleepTime, wakeTime);
 
   const maxCycles = Math.floor((totalAvailableMinutes - FALL_ASLEEP_MINUTES) / REM_CYCLE_MINUTES);
 
-  for (let cycles = maxCycles; cycles >= 3; cycles--) {
+  for (let cycles = maxCycles; cycles >= 3 && suggestions.length < limit; cycles--) {
     const sleepDuration = cycles * REM_CYCLE_MINUTES;
     const wakeUpTime = addMinutes(sleepTime, FALL_ASLEEP_MINUTES + sleepDuration);
 
@@ -68,10 +68,10 @@ export function calculateWakeTimes(sleepTime: string, wakeTime: string): Suggest
   return suggestions;
 }
 
-export function calculateSleepTimes(wakeTime: string): SuggestedTime[] {
+export function calculateSleepTimes(wakeTime: string, limit: number = 5): SuggestedTime[] {
   const suggestions: SuggestedTime[] = [];
 
-  for (let cycles = 6; cycles >= 4; cycles--) {
+  for (let cycles = 6; cycles >= 4 && suggestions.length < limit; cycles--) {
     const sleepDuration = cycles * REM_CYCLE_MINUTES;
     const totalMinutesBack = FALL_ASLEEP_MINUTES + sleepDuration;
 
